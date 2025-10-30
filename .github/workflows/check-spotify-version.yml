@@ -3,7 +3,6 @@ name: check spotify version
 on:
   workflow_dispatch:
   
-
 jobs:
   check-version:
     runs-on: windows-latest
@@ -36,10 +35,8 @@ jobs:
           
           $output = & .\web_search.exe 2>&1
           
-          # Показываем все логи (stderr)
           $output | Where-Object { $_ -notmatch '^\{' } | ForEach-Object { Write-Host $_ }
           
-          # Извлекаем JSON результат (stdout)
           $jsonLine = $output | Where-Object { $_ -match '^\{.*"success"' } | Select-Object -First 1
           
           if ($jsonLine) {
