@@ -1,10 +1,10 @@
 use base64::{engine::general_purpose, Engine as _};
 use reqwest;
 use scraper::{Html, Selector};
-use serde_json::Value;
-use std::fs;
+use serde_json::{json, Value};
 
 use chrono::{Datelike, Local, Timelike};
+
 fn log_time() -> String {
     let now = Local::now();
     format!(
@@ -20,19 +20,19 @@ fn log_time() -> String {
 }
 
 fn log_info(_step: &str, message: &str) {
-    println!("[{}]  {}", log_time(), message);
+    eprintln!("[{}]  {}", log_time(), message);
 }
 
 fn log_success(_step: &str, message: &str) {
-    println!("[{}]  [ OK ]  {}", log_time(), message);
+    eprintln!("[{}]  [ OK ]  {}", log_time(), message);
 }
 
 fn log_warning(_step: &str, message: &str) {
-    println!("[{}]  {}", log_time(), message);
+    eprintln!("[{}]  {}", log_time(), message);
 }
 
 fn log_error(_step: &str, message: &str) {
-    println!("[{}]  [ ERROR ]  {}", log_time(), message);
+    eprintln!("[{}]  [ ERROR ]  {}", log_time(), message);
 }
 
 const SPOTIFY_URL: &str = "https://open.spotify.com";
@@ -71,9 +71,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "HTTP",
         &format!("HTML received ({} bytes)", html_content.len()),
     );
-
-    fs::write("spotify_page.html", &html_content)?;
-    log_info("FILE", "HTML saved to spotify_page.html");
 
     log_info("PARSE", "Parsing HTML document...");
     let document = Html::parse_document(&html_content);
@@ -123,6 +120,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if let Some(base64_str) = base64_string {
         if base64_str.is_empty() {
             log_error("ERROR", "Tag found, but content is empty!");
+            
+            let output = json!({
+                "success": false,
+                "error": "Base64 content is empty"
+            });
+            println!("{}", serde_json::to_string(&output)?);
+            
             return Ok(());
         }
 
@@ -144,76 +148,56 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         if let (Some(version), Some(build_date)) = (version, build_date) {
             log_success("", "Version data extracted");
-            if !version.is_empty() {
-                log_success("", &format!("clientVersion: {}", version));
-            }
-            if !build_date.is_empty() {
-                log_success("", &format!("buildDate: {}", build_date));
-            }
+            log_success("", &format!("clientVersion: {}", version));
+            log_success("", &format!("buildDate: {}", build_date));
             if let Some(bv) = build_version {
-                if !bv.is_empty() {
-                    log_success("", &format!("buildVersion: {}", bv));
-                }
+                log_success("", &format!("buildVersion: {}", bv));
             }
 
-            log_info("SAVE", "Saving data to JSON file...");
-            add_version_to_json(
-                version,
-                &build_date,
-                web_player_url.as_deref(),
-                build_version,
-            )?;
-            log_success("OK", "Data successfully added to version_web_spotify.json");
+            let key = version.split('.').take(4).collect::<Vec<_>>().join(".");
+            
+            let mut entry = json!({
+                "buildDate": build_date,
+                "clientVersion": version
+            });
+            
+            if let Some(url) = web_player_url.as_deref() {
+                entry["webPlayer"] = json!(url);
+            }
+            if let Some(bv) = build_version {
+                entry["buildVersion"] = json!(bv);
+            }
+
+            let output = json!({
+                "success": true,
+                "key": key,
+                "data": entry
+            });
+            
+            println!("{}", serde_json::to_string(&output)?);
+            log_success("OUTPUT", "JSON output sent to stdout");
+            
         } else {
             log_error(
                 "ERROR",
                 "Properties 'clientVersion' or 'buildDate' not found!",
             );
+            
+            let output = json!({
+                "success": false,
+                "error": "clientVersion or buildDate not found"
+            });
+            println!("{}", serde_json::to_string(&output)?);
         }
     } else {
         log_error("FAIL", "Tag 'appServerConfig' not found in HTML!");
-        log_warning("DEBUG", "Check spotify_page.html for diagnostics");
+        
+        let output = json!({
+            "success": false,
+            "error": "appServerConfig tag not found"
+        });
+        println!("{}", serde_json::to_string(&output)?);
     }
 
-    Ok(())
-}
-
-fn add_version_to_json(
-    version: &str,
-    build_date: &str,
-    web_player_url: Option<&str>,
-    build_version: Option<&str>,
-) -> Result<(), std::io::Error> {
-    use serde_json::{json, Map, Value};
-    let file_path = "version_web_spotify.json";
-
-    let mut versions_map = if let Ok(content) = fs::read_to_string(file_path) {
-        serde_json::from_str::<Value>(&content)
-            .unwrap_or_else(|_| json!({}))
-            .as_object()
-            .cloned()
-            .unwrap_or_else(Map::new)
-    } else {
-        Map::new()
-    };
-
-    let key = version.split('.').take(4).collect::<Vec<_>>().join(".");
-
-    let mut entry = json!({
-        "buildDate": build_date,
-        "clientVersion": version
-    });
-    if let Some(url) = web_player_url {
-        entry["webPlayer"] = json!(url);
-    }
-    if let Some(bv) = build_version {
-        entry["buildVersion"] = json!(bv);
-    }
-
-    versions_map.insert(key.to_string(), entry);
-
-    let json_data = Value::Object(versions_map);
-    let json_str = serde_json::to_string_pretty(&json_data).unwrap();
-    fs::write(file_path, json_str)?;
     Ok(())
 }
