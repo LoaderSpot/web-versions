@@ -2,6 +2,7 @@ use base64::{engine::general_purpose, Engine as _};
 use reqwest;
 use scraper::{Html, Selector};
 use serde_json::{json, Value};
+use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
@@ -11,14 +12,14 @@ use chrono::{Datelike, Local, Timelike};
 fn log_time() -> String {
     let now = Local::now();
     format!(
-        "{:02}.{:02}.{:04}-{}:{}:{}:{}",
+        "{:02}.{:02}.{:04}-{}:{}:{}:{:02}",
         now.day(),
         now.month(),
         now.year(),
         now.hour(),
         now.minute(),
         now.second(),
-        now.timestamp_subsec_millis()
+        now.timestamp_subsec_millis() / 10
     )
 }
 
@@ -72,25 +73,30 @@ fn load_existing_versions() -> Result<HashMap<String, Value>, Box<dyn std::error
     }
 }
 
-fn save_versions(versions: &HashMap<String, Value>) -> Result<(), Box<dyn std::error::Error>> {
-    let mut sorted_keys: Vec<&String> = versions.keys().collect();
-    sorted_keys.sort_by(|a, b| {
-        let parts_a: Vec<u32> = a.split('.').filter_map(|s| s.parse().ok()).collect();
-        let parts_b: Vec<u32> = b.split('.').filter_map(|s| s.parse().ok()).collect();
+fn compare_versions(a: &str, b: &str) -> Ordering {
+    let parts_a: Vec<u32> = a.split('.').filter_map(|s| s.parse().ok()).collect();
+    let parts_b: Vec<u32> = b.split('.').filter_map(|s| s.parse().ok()).collect();
 
-        parts_b.cmp(&parts_a)
-    });
+    parts_b.cmp(&parts_a)
+}
+
+fn save_versions(versions: &HashMap<String, Value>) -> Result<(), Box<dyn std::error::Error>> {
+    log_info("SORT", "Sorting versions...");
+    let mut sorted_keys: Vec<String> = versions.keys().cloned().collect();
+    sorted_keys.sort_by(|a, b| compare_versions(a, b));
+    log_success("SORT", "Versions sorted");
 
     let mut ordered = serde_json::Map::new();
     for key in sorted_keys {
-        if let Some(value) = versions.get(key) {
-            ordered.insert(key.clone(), value.clone());
+        if let Some(value) = versions.get(&key) {
+            ordered.insert(key, value.clone());
         }
     }
 
-    let json_content = serde_json::to_string_pretty(&ordered)?;
+    let ordered_value = Value::Object(ordered);
+    let json_content = serde_json::to_string_pretty(&ordered_value)?;
     fs::write(VERSIONS_FILE, json_content)?;
-    log_success("FILE", &format!("Saved {} to disk (sorted)", VERSIONS_FILE));
+    log_success("FILE", &format!("Saved {} to disk", VERSIONS_FILE));
     Ok(())
 }
 
@@ -213,7 +219,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 entry["buildVersion"] = json!(bv);
             }
 
-            // Проверяем существующие версии
             log_info("CHECK", "Checking if version is new...");
             match load_existing_versions() {
                 Ok(mut versions) => {
