@@ -82,19 +82,37 @@ fn compare_versions(a: &str, b: &str) -> Ordering {
 
 fn save_versions(versions: &HashMap<String, Value>) -> Result<(), Box<dyn std::error::Error>> {
     log_info("SORT", "Sorting versions...");
+
     let mut sorted_keys: Vec<String> = versions.keys().cloned().collect();
     sorted_keys.sort_by(|a, b| compare_versions(a, b));
+
     log_success("SORT", "Versions sorted");
 
-    let mut ordered = serde_json::Map::new();
-    for key in sorted_keys {
-        if let Some(value) = versions.get(&key) {
-            ordered.insert(key, value.clone());
+    let mut json_parts = Vec::new();
+    json_parts.push("{\n".to_string());
+
+    for (i, key) in sorted_keys.iter().enumerate() {
+        if let Some(value) = versions.get(key) {
+            let value_str = serde_json::to_string_pretty(value)?;
+
+            let indented_value: Vec<String> = value_str
+                .lines()
+                .map(|line| format!("  {}", line))
+                .collect();
+
+            json_parts.push(format!("  \"{}\": {}", key, indented_value.join("\n")));
+
+            if i < sorted_keys.len() - 1 {
+                json_parts.push(",\n".to_string());
+            } else {
+                json_parts.push("\n".to_string());
+            }
         }
     }
 
-    let ordered_value = Value::Object(ordered);
-    let json_content = serde_json::to_string_pretty(&ordered_value)?;
+    json_parts.push("}".to_string());
+
+    let json_content = json_parts.join("");
     fs::write(VERSIONS_FILE, json_content)?;
     log_success("FILE", &format!("Saved {} to disk", VERSIONS_FILE));
     Ok(())
