@@ -1,8 +1,9 @@
-name: check spotify version
+name: Check Spotify Version
 
 on:
   workflow_dispatch:
   
+
 jobs:
   check-version:
     runs-on: windows-latest
@@ -49,6 +50,10 @@ jobs:
             echo "IS_NEW=$($json.is_new)" >> $env:GITHUB_OUTPUT
             echo "KEY=$($json.key)" >> $env:GITHUB_OUTPUT
             
+            if ($json.data.clientVersion) {
+              echo "CLIENT_VERSION=$($json.data.clientVersion)" >> $env:GITHUB_OUTPUT
+            }
+            
             if ($json.message) {
               echo "MESSAGE=$($json.message)" >> $env:GITHUB_OUTPUT
             }
@@ -67,7 +72,7 @@ jobs:
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           git add versions_web.json
-          git commit -m "Update Spotify version: ${{ steps.check.outputs.KEY }}"
+          git commit -m "Added version ${{ steps.check.outputs.CLIENT_VERSION }}"
           git push
       
       - name: Version status
