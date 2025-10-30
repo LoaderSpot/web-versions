@@ -21,7 +21,7 @@ jobs:
           
           if ($asset) {
             Write-Host "Downloading: $($asset.name)"
-            Invoke-WebRequest -Uri $asset.browser_download_url -OutFile "spotify-version-tracker.exe"
+            Invoke-WebRequest -Uri $asset.browser_download_url -OutFile "web_search.exe"
             Write-Host "Downloaded successfully"
           } else {
             Write-Error "No .exe file found in latest release"
@@ -32,15 +32,12 @@ jobs:
         id: check
         shell: pwsh
         run: |
-          Write-Host "Running spotify-version-tracker.exe..."
+          Write-Host "Running web_search.exe..."
           
-          # Запускаем .exe и захватываем вывод
-          $output = & .\spotify-version-tracker.exe 2>&1
+          $output = & .\web_search.exe 2>&1
           
-          # Логи (stderr) выводим в консоль
           $output | Where-Object { $_ -notmatch '^\{' } | ForEach-Object { Write-Host $_ }
           
-          # JSON (stdout) ищем в выводе
           $jsonLine = $output | Where-Object { $_ -match '^\{.*"success"' } | Select-Object -First 1
           
           if ($jsonLine) {
@@ -49,7 +46,6 @@ jobs:
             
             $json = $jsonLine | ConvertFrom-Json
             
-            # Сохраняем в переменные для следующих шагов
             echo "SUCCESS=$($json.success)" >> $env:GITHUB_OUTPUT
             
             if ($json.success -eq $true) {
@@ -92,17 +88,14 @@ jobs:
           $key = "${{ steps.check.outputs.KEY }}"
           $data = '${{ steps.check.outputs.DATA }}' | ConvertFrom-Json
           
-          # Читаем существующий файл или создаем новый
           if (Test-Path "versions_web.json") {
             $versions = Get-Content "versions_web.json" | ConvertFrom-Json
           } else {
             $versions = @{}
           }
           
-          # Добавляем новую версию
           $versions | Add-Member -NotePropertyName $key -NotePropertyValue $data -Force
           
-          # Сохраняем обратно
           $versions | ConvertTo-Json -Depth 10 | Set-Content "versions_web.json"
           
           Write-Host "Updated versions_web.json with version $key"
