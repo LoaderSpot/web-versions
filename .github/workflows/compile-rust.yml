@@ -1,4 +1,4 @@
-name: compiling web_search.exe to windows x64
+name: compiling web_search.exe
 
 on:
   workflow_dispatch: 
