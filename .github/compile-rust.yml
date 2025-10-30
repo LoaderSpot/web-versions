@@ -1,0 +1,26 @@
+name: compiling web_search.exe to windows x64
+
+on:
+  workflow_dispatch: 
+
+jobs:
+  build:
+    runs-on: windows-latest  
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc  
+      
+      - name: Build release binary
+        run: cargo build --release --target x86_64-pc-windows-msvc
+      
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: web_search-x64
+          path: target/x86_64-pc-windows-msvc/release/web_search.exe
