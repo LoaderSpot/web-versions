@@ -1,4 +1,4 @@
-name: Check Spotify Version
+name: check spotify version
 
 on:
   workflow_dispatch:
@@ -36,8 +36,10 @@ jobs:
           
           $output = & .\web_search.exe 2>&1
           
+          # Показываем все логи (stderr)
           $output | Where-Object { $_ -notmatch '^\{' } | ForEach-Object { Write-Host $_ }
           
+          # Извлекаем JSON результат (stdout)
           $jsonLine = $output | Where-Object { $_ -match '^\{.*"success"' } | Select-Object -First 1
           
           if ($jsonLine) {
@@ -47,11 +49,14 @@ jobs:
             $json = $jsonLine | ConvertFrom-Json
             
             echo "SUCCESS=$($json.success)" >> $env:GITHUB_OUTPUT
+            echo "IS_NEW=$($json.is_new)" >> $env:GITHUB_OUTPUT
+            echo "KEY=$($json.key)" >> $env:GITHUB_OUTPUT
             
-            if ($json.success -eq $true) {
-              echo "KEY=$($json.key)" >> $env:GITHUB_OUTPUT
-              echo "DATA=$($json.data | ConvertTo-Json -Compress)" >> $env:GITHUB_OUTPUT
-            } else {
+            if ($json.message) {
+              echo "MESSAGE=$($json.message)" >> $env:GITHUB_OUTPUT
+            }
+            
+            if ($json.error) {
               echo "ERROR=$($json.error)" >> $env:GITHUB_OUTPUT
             }
           } else {
@@ -59,49 +64,8 @@ jobs:
             exit 1
           }
       
-      - name: Check if version exists
-        id: version_check
-        if: steps.check.outputs.SUCCESS == 'true'
-        shell: pwsh
-        run: |
-          $key = "${{ steps.check.outputs.KEY }}"
-          
-          if (Test-Path "versions_web.json") {
-            $versions = Get-Content "versions_web.json" | ConvertFrom-Json
-            
-            if ($versions.PSObject.Properties.Name -contains $key) {
-              Write-Host "Version $key already exists in versions_web.json"
-              echo "EXISTS=true" >> $env:GITHUB_OUTPUT
-            } else {
-              Write-Host "Version $key is NEW!"
-              echo "EXISTS=false" >> $env:GITHUB_OUTPUT
-            }
-          } else {
-            Write-Host "versions_web.json not found, will create new file"
-            echo "EXISTS=false" >> $env:GITHUB_OUTPUT
-          }
-      
-      - name: Update versions_web.json
-        if: steps.check.outputs.SUCCESS == 'true' && steps.version_check.outputs.EXISTS == 'false'
-        shell: pwsh
-        run: |
-          $key = "${{ steps.check.outputs.KEY }}"
-          $data = '${{ steps.check.outputs.DATA }}' | ConvertFrom-Json
-          
-          if (Test-Path "versions_web.json") {
-            $versions = Get-Content "versions_web.json" | ConvertFrom-Json
-          } else {
-            $versions = @{}
-          }
-          
-          $versions | Add-Member -NotePropertyName $key -NotePropertyValue $data -Force
-          
-          $versions | ConvertTo-Json -Depth 10 | Set-Content "versions_web.json"
-          
-          Write-Host "Updated versions_web.json with version $key"
-      
-      - name: Commit changes
-        if: steps.check.outputs.SUCCESS == 'true' && steps.version_check.outputs.EXISTS == 'false'
+      - name: Commit new version
+        if: steps.check.outputs.SUCCESS == 'true' && steps.check.outputs.IS_NEW == 'true'
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
@@ -109,10 +73,10 @@ jobs:
           git commit -m "Update Spotify version: ${{ steps.check.outputs.KEY }}"
           git push
       
-      - name: Version already exists
-        if: steps.check.outputs.SUCCESS == 'true' && steps.version_check.outputs.EXISTS == 'true'
+      - name: Version status
+        if: steps.check.outputs.SUCCESS == 'true'
         run: |
-          echo "Version ${{ steps.check.outputs.KEY }} already exists in versions_web.json - no update needed"
+          echo "${{ steps.check.outputs.MESSAGE }}"
       
       - name: Error occurred
         if: steps.check.outputs.SUCCESS == 'false'

@@ -2,6 +2,9 @@ use base64::{engine::general_purpose, Engine as _};
 use reqwest;
 use scraper::{Html, Selector};
 use serde_json::{json, Value};
+use std::collections::HashMap;
+use std::fs;
+use std::path::Path;
 
 use chrono::{Datelike, Local, Timelike};
 
@@ -37,6 +40,7 @@ fn log_error(_step: &str, message: &str) {
 
 const SPOTIFY_URL: &str = "https://open.spotify.com";
 const USER_AGENT_API: &str = "https://jnrbsn.github.io/user-agents/user-agents.json";
+const VERSIONS_FILE: &str = "versions_web.json";
 
 async fn get_latest_user_agent() -> Result<String, Box<dyn std::error::Error>> {
     let client = reqwest::Client::new();
@@ -47,6 +51,26 @@ async fn get_latest_user_agent() -> Result<String, Box<dyn std::error::Error>> {
         .first()
         .cloned()
         .unwrap_or_else(|| "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36".to_string()))
+}
+
+fn load_existing_versions() -> Result<HashMap<String, Value>, Box<dyn std::error::Error>> {
+    if Path::new(VERSIONS_FILE).exists() {
+        log_info("FILE", &format!("Loading existing {}", VERSIONS_FILE));
+        let content = fs::read_to_string(VERSIONS_FILE)?;
+        let versions: HashMap<String, Value> = serde_json::from_str(&content)?;
+        log_success("FILE", &format!("Loaded {} existing versions", versions.len()));
+        Ok(versions)
+    } else {
+        log_warning("FILE", &format!("{} not found, treating as new", VERSIONS_FILE));
+        Ok(HashMap::new())
+    }
+}
+
+fn save_versions(versions: &HashMap<String, Value>) -> Result<(), Box<dyn std::error::Error>> {
+    let json_content = serde_json::to_string_pretty(&versions)?;
+    fs::write(VERSIONS_FILE, json_content)?;
+    log_success("FILE", &format!("Saved {} to disk", VERSIONS_FILE));
+    Ok(())
 }
 
 #[tokio::main]
@@ -168,13 +192,53 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 entry["buildVersion"] = json!(bv);
             }
 
-            let output = json!({
-                "success": true,
-                "key": key,
-                "data": entry
-            });
+            log_info("CHECK", "Checking if version is new...");
+            match load_existing_versions() {
+                Ok(mut versions) => {
+                    if versions.contains_key(&key) {
+                        log_warning("CHECK", &format!("Version {} already exists", key));
+                        let output = json!({
+                            "success": true,
+                            "is_new": false,
+                            "key": key,
+                            "message": format!("Version {} already exists", key)
+                        });
+                        println!("{}", serde_json::to_string(&output)?);
+                    } else {
+                        log_success("CHECK", &format!("Version {} is NEW!", key));
+                        
+                        versions.insert(key.clone(), entry.clone());
+                        
+                        if let Err(e) = save_versions(&versions) {
+                            log_error("FILE", &format!("Failed to save versions: {}", e));
+                            let output = json!({
+                                "success": false,
+                                "error": format!("Failed to save versions: {}", e)
+                            });
+                            println!("{}", serde_json::to_string(&output)?);
+                            return Ok(());
+                        }
+                        
+                        let output = json!({
+                            "success": true,
+                            "is_new": true,
+                            "key": key,
+                            "data": entry,
+                            "message": format!("New version {} detected and saved", key)
+                        });
+                        println!("{}", serde_json::to_string(&output)?);
+                    }
+                }
+                Err(e) => {
+                    log_error("FILE", &format!("Failed to load versions: {}", e));
+                    let output = json!({
+                        "success": false,
+                        "error": format!("Failed to load versions: {}", e)
+                    });
+                    println!("{}", serde_json::to_string(&output)?);
+                }
+            }
             
-            println!("{}", serde_json::to_string(&output)?);
             log_success("OUTPUT", "JSON output sent to stdout");
             
         } else {
