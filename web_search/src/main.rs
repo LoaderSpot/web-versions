@@ -58,18 +58,39 @@ fn load_existing_versions() -> Result<HashMap<String, Value>, Box<dyn std::error
         log_info("FILE", &format!("Loading existing {}", VERSIONS_FILE));
         let content = fs::read_to_string(VERSIONS_FILE)?;
         let versions: HashMap<String, Value> = serde_json::from_str(&content)?;
-        log_success("FILE", &format!("Loaded {} existing versions", versions.len()));
+        log_success(
+            "FILE",
+            &format!("Loaded {} existing versions", versions.len()),
+        );
         Ok(versions)
     } else {
-        log_warning("FILE", &format!("{} not found, treating as new", VERSIONS_FILE));
+        log_warning(
+            "FILE",
+            &format!("{} not found, treating as new", VERSIONS_FILE),
+        );
         Ok(HashMap::new())
     }
 }
 
 fn save_versions(versions: &HashMap<String, Value>) -> Result<(), Box<dyn std::error::Error>> {
-    let json_content = serde_json::to_string_pretty(&versions)?;
+    let mut sorted_keys: Vec<&String> = versions.keys().collect();
+    sorted_keys.sort_by(|a, b| {
+        let parts_a: Vec<u32> = a.split('.').filter_map(|s| s.parse().ok()).collect();
+        let parts_b: Vec<u32> = b.split('.').filter_map(|s| s.parse().ok()).collect();
+
+        parts_b.cmp(&parts_a)
+    });
+
+    let mut ordered = serde_json::Map::new();
+    for key in sorted_keys {
+        if let Some(value) = versions.get(key) {
+            ordered.insert(key.clone(), value.clone());
+        }
+    }
+
+    let json_content = serde_json::to_string_pretty(&ordered)?;
     fs::write(VERSIONS_FILE, json_content)?;
-    log_success("FILE", &format!("Saved {} to disk", VERSIONS_FILE));
+    log_success("FILE", &format!("Saved {} to disk (sorted)", VERSIONS_FILE));
     Ok(())
 }
 
@@ -144,13 +165,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if let Some(base64_str) = base64_string {
         if base64_str.is_empty() {
             log_error("ERROR", "Tag found, but content is empty!");
-            
+
             let output = json!({
                 "success": false,
                 "error": "Base64 content is empty"
             });
             println!("{}", serde_json::to_string(&output)?);
-            
+
             return Ok(());
         }
 
@@ -179,12 +200,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
 
             let key = version.split('.').take(4).collect::<Vec<_>>().join(".");
-            
+
             let mut entry = json!({
                 "buildDate": build_date,
                 "clientVersion": version
             });
-            
+
             if let Some(url) = web_player_url.as_deref() {
                 entry["webPlayer"] = json!(url);
             }
@@ -192,6 +213,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 entry["buildVersion"] = json!(bv);
             }
 
+            // Проверяем существующие версии
             log_info("CHECK", "Checking if version is new...");
             match load_existing_versions() {
                 Ok(mut versions) => {
@@ -206,9 +228,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         println!("{}", serde_json::to_string(&output)?);
                     } else {
                         log_success("CHECK", &format!("Version {} is NEW!", key));
-                        
+
                         versions.insert(key.clone(), entry.clone());
-                        
+
                         if let Err(e) = save_versions(&versions) {
                             log_error("FILE", &format!("Failed to save versions: {}", e));
                             let output = json!({
@@ -218,13 +240,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             println!("{}", serde_json::to_string(&output)?);
                             return Ok(());
                         }
-                        
+
                         let output = json!({
                             "success": true,
                             "is_new": true,
                             "key": key,
                             "data": entry,
-                            "message": format!("New version {} detected and saved", key)
+                            "message": format!("New version {} detected and saved", version)
                         });
                         println!("{}", serde_json::to_string(&output)?);
                     }
@@ -238,15 +260,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     println!("{}", serde_json::to_string(&output)?);
                 }
             }
-            
+
             log_success("OUTPUT", "JSON output sent to stdout");
-            
         } else {
             log_error(
                 "ERROR",
                 "Properties 'clientVersion' or 'buildDate' not found!",
             );
-            
+
             let output = json!({
                 "success": false,
                 "error": "clientVersion or buildDate not found"
@@ -255,7 +276,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     } else {
         log_error("FAIL", "Tag 'appServerConfig' not found in HTML!");
-        
+
         let output = json!({
             "success": false,
             "error": "appServerConfig tag not found"
