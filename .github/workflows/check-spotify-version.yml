@@ -1,4 +1,4 @@
-name: Check Spotify Version
+name: check spotify version
 
 on:
   workflow_dispatch:
