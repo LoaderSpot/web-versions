@@ -17,10 +17,31 @@ jobs:
           targets: x86_64-pc-windows-msvc  
       
       - name: Build release binary
+        working-directory: ./web_search
         run: cargo build --release --target x86_64-pc-windows-msvc
       
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: web_search-x64
-          path: target/x86_64-pc-windows-msvc/release/web_search.exe
+          path: web_search/target/x86_64-pc-windows-msvc/release/web_search.exe
+      
+      - name: Get version from Cargo.toml
+        id: version
+        shell: pwsh
+        run: |
+          $cargoContent = Get-Content web_search/Cargo.toml -Raw
+          $version = [regex]::Match($cargoContent, 'version\s*=\s*"([^"]+)"').Groups[1].Value
+          echo "VERSION=$version" >> $env:GITHUB_OUTPUT
+          echo "Version: $version"
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ steps.version.outputs.VERSION }}
+          name: Release v${{ steps.version.outputs.VERSION }}
+          files: web_search/target/x86_64-pc-windows-msvc/release/web_search.exe
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
