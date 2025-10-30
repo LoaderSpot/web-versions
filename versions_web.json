@@ -4,11 +4,5 @@
     "buildVersion": "open-server_2025-10-29_1761739576024_d3bbd32",
     "clientVersion": "1.2.76.279.gd3bbd320",
     "webPlayer": "https://open-exp.spotifycdn.com/cdn/build/web-player/web-player.80a5370b.js"
-  },
-  "1.2.76.278": {
-    "buildDate": "2025-10-29",
-    "buildVersion": "open-server_2025-10-29_1761739576024_d3bbd32",
-    "clientVersion": "1.2.76.279.gd3bbd320",
-    "webPlayer": "https://open-exp.spotifycdn.com/cdn/build/web-player/web-player.80a5370b.js"
   }
 }
