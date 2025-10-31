@@ -1,11 +1,9 @@
 name: check spotify version
-
 on:
-  schedule:
-   - cron: '0 * * * *'  
   workflow_dispatch:
+  repository_dispatch:
+    types: [trigger-version-check]
   
-
 jobs:
   check-version:
     runs-on: windows-latest
