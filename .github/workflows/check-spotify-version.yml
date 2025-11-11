@@ -16,15 +16,14 @@ jobs:
         shell: pwsh
         run: |
           $repo = "${{ github.repository }}"
-          $release = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases/latest"
-          $asset = $release.assets | Where-Object { $_.name -like "*.exe" } | Select-Object -First 1
+          $downloadUrl = "https://github.com/$repo/releases/latest/download/web_search.exe"
           
-          if ($asset) {
-            Write-Host "Downloading: $($asset.name)"
-            Invoke-WebRequest -Uri $asset.browser_download_url -OutFile "web_search.exe"
+          try {
+            Write-Host "Downloading: $downloadUrl"
+            Invoke-WebRequest -Uri $downloadUrl -OutFile "web_search.exe" -ErrorAction Stop
             Write-Host "Downloaded successfully"
-          } else {
-            Write-Error "No .exe file found in latest release"
+          } catch {
+            Write-Error "Failed to download latest release. Please check if 'web_search.exe' exists in the latest release."
             exit 1
           }
       
