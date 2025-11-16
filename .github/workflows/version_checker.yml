@@ -1,0 +1,19 @@
+name: Check web versions
+
+on:
+  schedule:
+    - cron: '0 */4 * * *'
+  workflow_dispatch:
+
+jobs:
+  check-versions:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Run version check script
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN_CROSS_REPO }}
+        shell: pwsh
+        run: ./check-versions.ps1
