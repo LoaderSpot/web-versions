@@ -11,7 +11,7 @@ $versions = $versionsResponse.Content | ConvertFrom-Json
 $latestVersion = $versions.psobject.Properties.Name | ForEach-Object { [version]$_ } | Sort-Object -Descending | Select-Object -First 1
 
 if (-not $latestVersion) {
-    Write-Output "Не удалось определить последнюю версию в versions.json."
+    Write-Output "Не удалось определить последнюю версию в versions.json"
     exit
 }
 
@@ -33,26 +33,24 @@ if ($versionsToSort.Count -gt 0) {
 
     $versionString = $sortedList -join ','
 
-    Write-Output "Найдено $($sortedList.Count) новых версий для проверки."
+    Write-Output "Найдено $($sortedList.Count) новых версий для проверки"
     
-    $tempDir = ".\temp"
-    if (-not (Test-Path -Path $tempDir)) {
-        New-Item -ItemType Directory -Path $tempDir | Out-Null
-    }
+    $tempDir = [System.IO.Path]::GetTempPath()
     
     $binaryUrl = "https://github.com/LoaderSpot/LoaderSpot/releases/latest/download/loaderspot-cli-win-x64.exe"
     $exePath = Join-Path -Path $tempDir -ChildPath "loaderspot-cli-win-x64.exe"
     
-    Write-Output "Скачивание последней версии бинарника..."
+    Write-Output "Скачивание последней версии loaderspot-cli..."
     try {
         Invoke-WebRequest -Uri $binaryUrl -OutFile $exePath -ErrorAction Stop
-        Write-Output "Бинарник успешно скачан в $exePath"
+        Write-Output "loaderspot-cli успешно скачан в $exePath"
     }
     catch {
-        Write-Error "Не удалось скачать бинарник: $_"
+        Write-Error "Не удалось скачать loaderspot-cli: $_"
         exit
     }
 
+    Write-Output "Поиск валидных версий..."
     $output = & $exePath --version $versionString --connections 300 --platform win --arch x64
     
     if ($output) {
@@ -73,7 +71,7 @@ if ($versionsToSort.Count -gt 0) {
                 $apiUrl = "https://api.github.com/repos/LoaderSpot/LoaderSpot/dispatches"
                 
                 $payload = @{
-                    event_type = "webhook-event"
+                    event_type     = "webhook-event"
                     client_payload = @{
                         v = $version
                         s = "[Spotify Web](open.spotify.com)"
@@ -97,18 +95,14 @@ if ($versionsToSort.Count -gt 0) {
         }
 
         if (-not $foundAnything) {
-            Write-Output "Поиск ссылок не дал результатов."
+            Write-Output "Поиск ссылок не дал результатов"
         }
     }
     else {
-        Write-Output "Бинарник не вернул никакого вывода."
+        Write-Output "loaderspot-cli не вернул никакого вывода"
     }
 
-    if (Test-Path -Path $tempDir) {
-        Write-Output "Удаление временной папки..."
-        Remove-Item -Path $tempDir -Recurse -Force
-    }
 }
 else {
-    Write-Output "Новых версий не найдено."
+    Write-Output "Новых версий не найдено"
 }
