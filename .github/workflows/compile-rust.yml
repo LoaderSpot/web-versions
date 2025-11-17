@@ -10,6 +10,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       
       - name: Auto-increment version
         id: increment_version
@@ -29,12 +31,10 @@ jobs:
           echo "New version: $newVersion"
 
       - name: Commit and push changes
-        run: |
-          git config --global user.name 'github-actions[bot]'
-          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-          git add web_search/Cargo.toml
-          git commit -m "ci: Bump version to ${{ steps.increment_version.outputs.NEW_VERSION }}"
-          git push
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "ci: Bump version to ${{ steps.increment_version.outputs.NEW_VERSION }}"
+          file_pattern: web_search/Cargo.toml
       
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
