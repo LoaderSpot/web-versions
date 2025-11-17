@@ -1,4 +1,4 @@
-name: check spotify version
+name: check the new spotify web version
 on:
   workflow_dispatch:
   repository_dispatch:
