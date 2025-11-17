@@ -1,4 +1,4 @@
-name: Check web versions
+name: search for desktop versions in web versions
 
 on:
   schedule:
