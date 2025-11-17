@@ -44,7 +44,9 @@ const USER_AGENT_API: &str = "https://jnrbsn.github.io/user-agents/user-agents.j
 const VERSIONS_FILE: &str = "versions_web.json";
 
 async fn get_latest_user_agent() -> Result<String, Box<dyn std::error::Error>> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .build()?;
     let response = client.get(USER_AGENT_API).send().await?;
     let user_agents: Vec<String> = response.json().await?;
 
@@ -131,7 +133,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     log_success("NET", &format!("User-Agent set: {}", user_agent));
 
     log_info("HTTP", &format!("Sending request to {}", SPOTIFY_URL));
-    let client = reqwest::Client::builder().user_agent(&user_agent).build()?;
+    let client = reqwest::Client::builder()
+        .user_agent(&user_agent)
+        .timeout(std::time::Duration::from_secs(30))
+        .build()?;
 
     let response = client.get(SPOTIFY_URL).send().await?;
     let html_content = response.text().await?;
