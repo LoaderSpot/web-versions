@@ -11,6 +11,31 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
       
+      - name: Auto-increment version
+        id: increment_version
+        shell: pwsh
+        run: |
+          $cargoPath = "web_search/Cargo.toml"
+          $cargoContent = Get-Content $cargoPath
+          $versionLine = $cargoContent | Select-String -Pattern 'version\s*=\s*"([^"]+)"'
+          $currentVersion = $versionLine.Matches.Groups[1].Value
+          $versionParts = $currentVersion.Split('.')
+          $newPatch = [int]$versionParts[2] + 1
+          $newVersion = "$($versionParts[0]).$($versionParts[1]).$newPatch"
+          $newVersionLine = 'version = "' + $newVersion + '"'
+          $cargoContent = $cargoContent -replace $versionLine, $newVersionLine
+          Set-Content -Path $cargoPath -Value $cargoContent
+          echo "NEW_VERSION=$newVersion" >> $env:GITHUB_OUTPUT
+          echo "New version: $newVersion"
+
+      - name: Commit and push changes
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add web_search/Cargo.toml
+          git commit -m "ci: Bump version to ${{ steps.increment_version.outputs.NEW_VERSION }}"
+          git push
+      
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -30,8 +55,7 @@ jobs:
         id: version
         shell: pwsh
         run: |
-          $cargoContent = Get-Content web_search/Cargo.toml -Raw
-          $version = [regex]::Match($cargoContent, 'version\s*=\s*"([^"]+)"').Groups[1].Value
+          $version = "${{ steps.increment_version.outputs.NEW_VERSION }}"
           echo "VERSION=$version" >> $env:GITHUB_OUTPUT
           echo "Version: $version"
       
