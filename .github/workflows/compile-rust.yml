@@ -19,25 +19,46 @@ jobs:
         shell: pwsh
         run: |
           $cargoPath = "web_search/Cargo.toml"
-          $cargoContent = Get-Content $cargoPath -Raw
-          $pattern = 'version\s*=\s*"([^"]+)"'
+          $cargoContent = Get-Content $cargoPath
           
-          if ($cargoContent -match $pattern) {
-              $currentVersion = $matches[1]
-              $versionParts = $currentVersion.Split('.')
-              $newPatch = [int]$versionParts[2] + 1
-              $newVersion = "$($versionParts[0]).$($versionParts[1]).$newPatch"
+          $packageSectionFound = $false
+          $versionUpdated = $false
+          $newVersion = ""
+          
+          for ($i = 0; $i -lt $cargoContent.Length; $i++) {
+              $line = $cargoContent[$i]
               
-              $cargoContent = $cargoContent -replace $pattern, "version = `"$newVersion`""
+              # Найти секцию [package]
+              if ($line -match '^\[package\]') {
+                  $packageSectionFound = $true
+                  continue
+              }
               
-              [System.IO.File]::WriteAllText($cargoPath, $cargoContent)
+              if ($packageSectionFound -and -not $versionUpdated -and $line -match '^version\s*=\s*"([^"]+)"') {
+                  $currentVersion = $matches[1]
+                  $versionParts = $currentVersion.Split('.')
+                  $newPatch = [int]$versionParts[2] + 1
+                  $newVersion = "$($versionParts[0]).$($versionParts[1]).$newPatch"
+                  
+                  $cargoContent[$i] = "version = `"$newVersion`""
+                  $versionUpdated = $true
+                  Write-Host "Updated version from $currentVersion to $newVersion"
+              }
               
-              echo "NEW_VERSION=$newVersion" >> $env:GITHUB_OUTPUT
-              echo "New version: $newVersion"
-          } else {
-              Write-Error "Version not found in Cargo.toml"
+              if ($packageSectionFound -and $line -match '^\[.*\]' -and $line -notmatch '^\[package\]') {
+                  break
+              }
+          }
+          
+          if (-not $versionUpdated) {
+              Write-Error "Failed to update version in [package] section"
               exit 1
           }
+          
+          Set-Content -Path $cargoPath -Value $cargoContent
+          
+          echo "NEW_VERSION=$newVersion" >> $env:GITHUB_OUTPUT
+          echo "New version: $newVersion"
 
       - name: Commit and push changes
         uses: stefanzweifel/git-auto-commit-action@v5
@@ -53,6 +74,12 @@ jobs:
         with:
           targets: x86_64-pc-windows-msvc  
       
+      - name: Verify Cargo.toml
+        shell: pwsh
+        run: |
+          Write-Host "Current Cargo.toml content:"
+          Get-Content web_search/Cargo.toml
+          
       - name: Build release binary
         shell: pwsh
         run: cargo build --release --target x86_64-pc-windows-msvc
