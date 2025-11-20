@@ -15,22 +15,29 @@ jobs:
       - name: Download latest release
         shell: pwsh
         run: |
-          $repo = "${{ github.repository }}"
-          $downloadUrl = "https://github.com/$repo/releases/latest/download/web_search.exe"
+          $downloadUrl = "https://github.com/LoaderSpot/web-versions/releases/latest/download/web_search.exe"
           
-          try {
-            Write-Host "Downloading: $downloadUrl"
-            Invoke-WebRequest -Uri $downloadUrl -OutFile "web_search.exe" -ErrorAction Stop
-            Write-Host "Downloaded successfully"
-          } catch {
-            Write-Error "Failed to download latest release. Please check if 'web_search.exe' exists in the latest release."
-            exit 1
+          Write-Host "Downloading: $downloadUrl"
+          
+          & curl.exe -L -o web_search.exe --retry 5 --retry-delay 5 --fail $downloadUrl
+          
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "Failed to download latest release. Skipping version check gracefully."
+            if (Test-Path "web_search.exe") { Remove-Item "web_search.exe" }
+            exit 0
           }
+          
+          Write-Host "Downloaded successfully"
       
       - name: Run version checker
         id: check
         shell: pwsh
         run: |
+          if (-not (Test-Path ".\web_search.exe")) {
+            Write-Host "web_search.exe not found. Skipping check."
+            exit 0
+          }
+
           Write-Host "Running web_search.exe..."
           
           $output = & .\web_search.exe 2>&1
