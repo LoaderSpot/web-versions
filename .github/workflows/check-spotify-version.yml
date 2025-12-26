@@ -1,9 +1,14 @@
 name: check the new spotify web version
+
 on:
   workflow_dispatch:
   repository_dispatch:
     types: [trigger-version-check]
-  
+
+concurrency:
+  group: version-check-singleton
+  cancel-in-progress: false
+
 jobs:
   check-version:
     runs-on: windows-latest
@@ -78,9 +83,12 @@ jobs:
           git config --local core.autocrlf false
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
+          
           git add versions_web.json
           git commit -m "Added version ${{ steps.check.outputs.CLIENT_VERSION }}"
-          git push
+          
+          git pull --rebase origin main
+          git push origin main
       
       - name: Version status
         if: steps.check.outputs.SUCCESS == 'true'
