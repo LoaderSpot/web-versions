@@ -1,4 +1,10 @@
 {
+  "1.2.81.47":   {
+    "buildDate": "2025-12-30",
+    "buildVersion": "open-server_2025-12-30_1767091715342_21f7320",
+    "clientVersion": "1.2.81.47.g21f73206",
+    "webPlayer": "https://open-exp.spotifycdn.com/cdn/build/web-player/web-player.fbea1d51.js"
+  },
   "1.2.81.44":   {
     "buildDate": "2025-12-30",
     "buildVersion": "open-server_2025-12-30_1767083048895_4e87719",
