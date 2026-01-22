@@ -5,6 +5,12 @@
     "clientVersion": "1.2.82.341.g4ecc067b",
     "webPlayer": "https://open-exp.spotifycdn.com/cdn/build/web-player/web-player.04c74517.js"
   },
+  "1.2.82.340":   {
+    "buildDate": "2026-01-22",
+    "buildVersion": "open-server_2026-01-22_1769051143200_e3e0ed3",
+    "clientVersion": "1.2.82.340.ge3e0ed31",
+    "webPlayer": "https://open-exp.spotifycdn.com/cdn/build/web-player/web-player.acd7fe8b.js"
+  },
   "1.2.82.339":   {
     "buildDate": "2026-01-22",
     "buildVersion": "open-server_2026-01-22_1769048884032_1ef970d",
