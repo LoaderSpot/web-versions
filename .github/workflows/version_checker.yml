@@ -2,7 +2,6 @@ name: search for desktop versions in web versions
 
 on:
   schedule:
-    - cron: '0 */4 * * *'
   workflow_dispatch:
 
 jobs:
