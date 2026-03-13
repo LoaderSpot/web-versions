@@ -1,4 +1,10 @@
 {
+  "1.2.86.264":   {
+    "buildDate": "2026-03-13",
+    "buildVersion": "open-server_2026-03-13_1773392521160_4cd3802",
+    "clientVersion": "1.2.86.264.g4cd38026",
+    "webPlayer": "https://open.spotifycdn.com/cdn/build/web-player/web-player.5a00d0cb.js"
+  },
   "1.2.86.263":   {
     "buildDate": "2026-03-13",
     "buildVersion": "open-server_2026-03-13_1773390525946_840ce62",
